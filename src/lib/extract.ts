@@ -57,23 +57,22 @@ export function parseJsonObject(raw: string): unknown {
 }
 
 const GLINER_LABELS = [
-  "hero name",
+  "child name",
   "age",
   "interest",
   "companion",
-  "setting",
   "occasion",
+  "setting",
 ];
 
 // Pioneer native inference: POST {base}/inference (root-level, NOT under /v1),
-// X-API-Key auth, body {model_id, text, schema, threshold} — confirmed against
-// their docs + live probe 2026-08-15. Response entity shape is defensive below
-// because the account hit the billing wall before we could observe a real one:
-// TODO(verify): tighten parsing once a plan is active on agent.pioneer.ai.
+// X-API-Key auth, body {model_id, text, schema, threshold}. Response shape
+// verified live 2026-08-15: result.data.entities is a dict keyed by label,
+// each value a list of {text, confidence, start, end} spans.
 async function extractViaPioneer(text: string): Promise<StoryBrief> {
   const baseURL = process.env.PIONEER_BASE_URL || "https://api.pioneer.ai";
   const apiKey = process.env.PIONEER_API_KEY;
-  const model = process.env.PIONEER_GLINER_MODEL || "GLiNER2-Large";
+  const model = process.env.PIONEER_GLINER_MODEL || "fastino/gliner2-large-v1";
   if (!apiKey) throw new Error("PIONEER_API_KEY not set");
   const timeoutMs = Number(process.env.PIONEER_TIMEOUT_MS || 6000);
 
@@ -91,18 +90,13 @@ async function extractViaPioneer(text: string): Promise<StoryBrief> {
   if (!res.ok) throw new Error(`Pioneer ${res.status}: ${await res.text()}`);
   const json = await res.json();
 
-  type Entity = Record<string, unknown>;
-  const rawEntities: Entity[] =
-    json.entities ?? json.result?.entities ?? json.data?.entities ?? [];
-  const entities = rawEntities.map((e) => ({
-    label: String(e.label ?? e.entity ?? e.type ?? ""),
-    text: String(e.text ?? e.span ?? e.value ?? ""),
-  }));
+  const entities: Record<string, { text?: string }[]> =
+    json.result?.data?.entities ?? {};
   const byLabel = (label: string) =>
-    entities.filter((e) => e.label === label && e.text).map((e) => e.text);
+    (entities[label] ?? []).map((e) => String(e.text ?? "")).filter(Boolean);
 
-  const heroName = byLabel("hero name")[0];
-  if (!heroName) throw new Error("GLiNER2 found no hero name");
+  const heroName = byLabel("child name")[0];
+  if (!heroName) throw new Error("GLiNER2 found no child name");
   const age = Number(byLabel("age")[0]);
   return StoryBriefSchema.parse({
     heroName,
