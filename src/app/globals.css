@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/* StoryLine palette: a bedside room at night. Dusk shells, paper pages lit
+   by lamplight. */
+:root {
+  --dusk: #1b2233;      /* room at night */
+  --dusk-2: #232c42;    /* raised surfaces */
+  --dusk-3: #2e3a56;    /* borders, quiet lines */
+  --moon: #e9ecf5;      /* text on dusk */
+  --moon-dim: #9aa3ba;  /* secondary text on dusk */
+  --paper: #f7f1e3;     /* book paper */
+  --ink: #2e2a24;       /* text on paper */
+  --lamp: #f5b942;      /* lamplight — money, CTAs, the warm thing */
+  --leaf: #8bc28c;      /* good news */
+  --ember: #e07856;     /* trouble */
+}
+
+@theme inline {
+  --color-background: var(--dusk);
+  --color-foreground: var(--moon);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--dusk);
+  color: var(--moon);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.display {
+  font-family: var(--font-fraunces), Georgia, serif;
+}
+
+/* Order tickets: the studio's job rail. */
+.ticket {
+  background: var(--dusk-2);
+  border: 1px solid var(--dusk-3);
+  border-radius: 10px;
+}
+.ticket-edge {
+  /* perforated ticket edge */
+  background-image: radial-gradient(circle, var(--dusk) 2.5px, transparent 3px);
+  background-size: 12px 12px;
+  background-position: center;
+  height: 6px;
+}
+
+.stamp {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  opacity: 0.9;
+}
+
+.page-card {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 6px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 12px 40px -12px rgba(245, 185, 66, 0.25);
+}
+
+@keyframes lamp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.pulse {
+  animation: lamp-pulse 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse { animation: none; }
+}
+
+:focus-visible {
+  outline: 2px solid var(--lamp);
+  outline-offset: 2px;
+}
