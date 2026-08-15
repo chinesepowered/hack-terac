@@ -22,6 +22,9 @@ import { logEvent } from "./log";
 const PRICE_CENTS = 500;
 const PAGE_COUNT = Number(process.env.STORY_PAGES || 6);
 
+/** bookId:pageNumber → last repaint start, for retry/double-tap suppression. */
+const repaintLocks = new Map<string, number>();
+
 function publicBase(): string | null {
   return process.env.PUBLIC_BASE_URL?.replace(/\/$/, "") ?? null;
 }
@@ -206,6 +209,17 @@ export async function handleReaction(
   const pageNumber = messageId ? order.pageMessages[messageId] : undefined;
 
   if ((kind.includes("dislike") || kind.includes("thumbsdown") || kind === "👎") && pageNumber && order.bookId) {
+    // Cooldown absorbs webhook retries and double-taps: one repaint per page
+    // per 3 minutes, and never two in flight.
+    const lockKey = `${order.bookId}:${pageNumber}`;
+    const last = repaintLocks.get(lockKey) ?? 0;
+    if (Date.now() - last < 180_000) {
+      logEvent("order", `repaint of page ${pageNumber} suppressed (cooldown)`, {
+        orderId: order.id,
+      });
+      return;
+    }
+    repaintLocks.set(lockKey, Date.now());
     await sendText(chatId, `On it — repainting page ${pageNumber}. 🎨`);
     await repaintPage(chatId, order, pageNumber);
     return;

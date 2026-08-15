@@ -26,10 +26,33 @@ function extractText(payload: any): string {
     .trim();
 }
 
+// Linq retries deliveries it considers failed — including slow ones — so we
+// must 200 immediately and do the work async. Retries reuse the webhook-id;
+// this set makes them no-ops.
+const seenWebhookIds = new Set<string>();
+function isDuplicate(id: string | null): boolean {
+  if (!id) return false;
+  if (seenWebhookIds.has(id)) return true;
+  seenWebhookIds.add(id);
+  if (seenWebhookIds.size > 2000) {
+    for (const old of seenWebhookIds) {
+      seenWebhookIds.delete(old);
+      if (seenWebhookIds.size <= 1000) break;
+    }
+  }
+  return false;
+}
+
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   if (!verifyLinqWebhook(rawBody, req.headers)) {
     return NextResponse.json({ error: "bad signature" }, { status: 401 });
+  }
+  if (isDuplicate(req.headers.get("webhook-id"))) {
+    logEvent("webhook", "duplicate delivery ignored", {
+      id: req.headers.get("webhook-id"),
+    });
+    return NextResponse.json({ ok: true, duplicate: true });
   }
 
   let event: any;
@@ -52,33 +75,37 @@ export async function POST(req: NextRequest) {
 
   logEvent("webhook", `linq ${type || "unknown-event"}`, { chatId, sender });
 
-  try {
-    if (type.startsWith("message.received")) {
-      const inbound =
-        field(payload, "direction") === "inbound" ||
-        field(payload, "is_from_me") === false ||
-        field(payload, "direction") === undefined;
-      const text = extractText(payload);
-      if (inbound && chatId && sender && text) {
-        await handleInboundMessage(String(chatId), String(sender), text);
-      }
-    } else if (type.startsWith("reaction.added") || type.startsWith("message.reaction")) {
-      const reaction = String(
-        field(payload, "reaction", "reaction_type", "reaction.type") ?? "",
+  // Fire-and-forget: Linq needs the 200 within seconds, and generation work
+  // takes minutes. Failures are logged, never surfaced as delivery errors.
+  const logFailure = (err: unknown) =>
+    logEvent("error", "webhook handling failed", {
+      error: String(err).slice(0, 300),
+    });
+
+  if (type.startsWith("message.received")) {
+    const inbound =
+      field(payload, "direction") === "inbound" ||
+      field(payload, "is_from_me") === false ||
+      field(payload, "direction") === undefined;
+    const text = extractText(payload);
+    if (inbound && chatId && sender && text) {
+      void handleInboundMessage(String(chatId), String(sender), text).catch(
+        logFailure,
       );
-      const messageId = field(payload, "message_id", "message.id");
-      if (chatId && sender) {
-        await handleReaction(
-          String(chatId),
-          String(sender),
-          reaction,
-          messageId ? String(messageId) : null,
-        );
-      }
     }
-  } catch (err) {
-    // Always 200 so Linq doesn't retry a poison message; failures are logged.
-    logEvent("error", "webhook handling failed", { error: String(err).slice(0, 300) });
+  } else if (type.startsWith("reaction.added") || type.startsWith("message.reaction")) {
+    const reaction = String(
+      field(payload, "reaction", "reaction_type", "reaction.type") ?? "",
+    );
+    const messageId = field(payload, "message_id", "message.id");
+    if (chatId && sender) {
+      void handleReaction(
+        String(chatId),
+        String(sender),
+        reaction,
+        messageId ? String(messageId) : null,
+      ).catch(logFailure);
+    }
   }
 
   return NextResponse.json({ ok: true });
