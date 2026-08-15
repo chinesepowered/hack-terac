@@ -30,10 +30,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "bad vote" }, { status: 400 });
   }
   const votes = await readVotes();
+  const submissionId = body.submissionId ? String(body.submissionId) : null;
+  if (submissionId) {
+    // One vote per participant per comparison — a retried or duplicate POST
+    // replaces the earlier record instead of inflating the tally.
+    const existing = votes.findIndex(
+      (v) => v.submissionId === submissionId && v.comparison === body.comparison,
+    );
+    if (existing >= 0) votes.splice(existing, 1);
+  }
   votes.push({
     comparison: String(body.comparison),
     choice: body.choice,
-    submissionId: body.submissionId ? String(body.submissionId) : null,
+    submissionId,
     ts: Date.now(),
   });
   await fs.mkdir(path.dirname(VOTES_PATH), { recursive: true });

@@ -10,12 +10,15 @@ final pass. Every bug carries a remediation note in the Replay dashboard.
 
 ## Scoreboard
 
-- **16 filings** across both projects → **11 distinct findings** (the pipeline
+- **21 filings** across both projects → **14 distinct findings** (the pipeline
   re-files a finding when a run that executed against a pre-fix build finishes
   processing after the fix; we attributed duplicates via `test_run_id`)
-- **10 of 11 correct (91%)** — all fixed and verified on the current build
-- **1 false positive** — reported to Replay (details below)
-- **Final verification pass: completed, 5 journeys, zero new findings** ✅
+- **13 of 14 correct (93%)** — all fixed and verified on the current build
+- **1 false-positive class, 3 filings** — WCAG contrast complaints about
+  elements on *Cloudflare's* tunnel interstitial pages, reported to Replay
+- A mid-audit verification pass ran **clean (5 journeys, zero findings)**;
+  a later crawl during a ~60s deploy window produced one final batch
+  (rows 12–14 below), fixed and re-verified
 
 ## Verdicts
 
@@ -31,7 +34,10 @@ final pass. Every bug carries a remediation note in the Replay dashboard.
 | 8 | 1024×1024 into ~328px box on the book page | ✅ Correct | Book illustrations moved to responsive `next/image` with `sizes` |
 | 9 | Request waterfall: thumbnails wait 809ms behind `/api/orders` fetch | ✅ **Correct** — genuinely sharp architectural catch | Dashboard is now server-rendered with the initial snapshot; proofs paint on first byte |
 | 10 | API returns `senderHandle: "[object Object]"` on a paid order | ✅ **Correct — best catch of the batch.** Real data corruption: live Linq webhooks send the sender as an object, and an earlier hot-patch was overwritten by a stale in-memory state flush | Webhook now normalizes the participant object to its `.handle`; stored order repaired; verified via `/api/orders` |
-| 11 | Low-contrast green "Working" text (1.53:1, below WCAG AA) | ❌ **False positive** — the flagged element is on **Cloudflare's tunnel status page**, not StoryLine; the crawler navigated off-app | Marked `invalid` in the dashboard; reported to Replay per their false-positive program |
+| 11 | Low-contrast text on "Working" / "Host" / "Browser" labels (3 filings) | ❌ **False positive** — every flagged element lives on **Cloudflare's tunnel status/error pages**, not StoryLine; the crawler read the interstitial as our app | Marked `invalid`; reported to Replay per their false-positive program |
+| 12 | Cloudflare 502 when navigating to the book page | ✅ Correct observation, transient cause: the crawler hit a ~60s server rebuild window; the app serves 200 before and after | No code change; laptop-hosted deploys have restart gaps — noted |
+| 13 | Vote silently lost when POST returns 502, no error shown | ✅ **Correct** — real robustness gap: the study page swallowed fetch failures and advanced anyway, discarding the participant's pick | Study flow no longer advances past an unsaved vote; failure shows a "tap again" alert |
+| 14 | 8 duplicate vote POSTs recorded for 2 comparisons | ✅ Correct — the endpoint accepted duplicates | One vote per participant per comparison: a retried POST replaces the earlier record instead of inflating the tally |
 
 ## Notes for the judges
 

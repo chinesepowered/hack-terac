@@ -30,23 +30,32 @@ function Study() {
   const taskId = params.get("taskId");
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const done = step >= COMPARISONS.length;
 
   async function vote(choice: "A" | "B") {
     if (saving) return;
     setSaving(true);
-    await fetch("/api/study/vote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        comparison: COMPARISONS[step].id,
-        choice,
-        submissionId,
-      }),
-    }).catch(() => {});
-    setSaving(false);
-    setStep((s) => s + 1);
+    setSaveFailed(false);
+    try {
+      const res = await fetch("/api/study/vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          comparison: COMPARISONS[step].id,
+          choice,
+          submissionId,
+        }),
+      });
+      if (!res.ok) throw new Error(`vote save failed: ${res.status}`);
+      setStep((s) => s + 1);
+    } catch {
+      // Never advance past an unsaved vote — the participant's pick counts.
+      setSaveFailed(true);
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (done) {
@@ -77,6 +86,11 @@ function Study() {
         {step + 1} of {COMPARISONS.length}
       </p>
       <h1 className="display mt-2 text-2xl leading-snug">{c.prompt}</h1>
+      {saveFailed && (
+        <p className="mt-3 text-sm" role="alert" style={{ color: "var(--ember)" }}>
+          Your pick didn&apos;t save — tap it again.
+        </p>
+      )}
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         {(["A", "B"] as const).map((side) => (
           <button
