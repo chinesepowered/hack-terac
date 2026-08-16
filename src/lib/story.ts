@@ -69,7 +69,12 @@ export async function writeStory(
       `The story should weave in the child's interests and companions, build ` +
       `gently to a small brave moment, and land softly for bedtime. Open ` +
       `simply and concretely — in testing, parents preferred plain, direct ` +
-      `openings over ornate ones 5–2.`,
+      `openings over ornate ones 5–2.\n\n` +
+      `Trademarked characters (Pokémon, Disney, superheroes, branded toys): ` +
+      `never name or depict them in characterDescription, ` +
+      `companionDescription, or any scene — illustrations get rejected. ` +
+      `Invent an original creature with similar charm instead: its own name, ` +
+      `its own look, clearly not the branded character.`,
     { json: true, temperature: 0.8 },
   );
   return StoryJsonSchema.parse(parseJsonObject(raw));
@@ -103,12 +108,33 @@ async function generateSafely(
     logEvent("error", "generation rejected, retrying with softened prompt", {
       error: String(err).slice(0, 200),
     });
-    return generateImage({
-      prompt:
-        safePrompt +
-        " Wholesome, innocent children's picture-book illustration.",
-      referenceImages,
-    });
+    try {
+      return await generateImage({
+        prompt:
+          safePrompt +
+          " Wholesome, innocent children's picture-book illustration.",
+        referenceImages,
+      });
+    } catch (err2) {
+      // Usually a trademarked character (moderation rejects IP, e.g. Pikachu).
+      logEvent("error", "still rejected — rewriting prompt to remove IP", {
+        error: String(err2).slice(0, 150),
+      });
+      const rewritten = await chat(
+        "extractor",
+        `This children's-book illustration prompt was rejected by an image ` +
+          `model's content moderation — most often because it names a ` +
+          `trademarked character (Pokémon, Disney, superheroes) or branded ` +
+          `toy. Rewrite it as a fully original prompt: replace any ` +
+          `trademarked character with an invented creature of similar charm ` +
+          `(different name, different look), keep the scene's emotional ` +
+          `moment, the human characters' descriptions, and the art style ` +
+          `unchanged. Return ONLY the rewritten prompt text.\n\n` +
+          `Prompt:\n${safePrompt}`,
+        { temperature: 0.4 },
+      );
+      return generateImage({ prompt: rewritten.trim(), referenceImages });
+    }
   }
 }
 
