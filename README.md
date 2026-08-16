@@ -28,6 +28,14 @@ No app. No signup. No human employees. A parent rambles about their kid; minutes
 
 # 🏆 Sponsor tracks — how we used each one
 
+| Sponsor | At a glance |
+|---|---|
+| 💬 **Linq** | The storefront itself: real iMessage number, pages streamed as media, **tapbacks as the product UI** (👎 = repaint), screen effects, HMAC webhooks, Agent Pay wired — two strangers became customers by texting it |
+| 📦 **Superserve** | One VM per order as fulfillment architecture: masterfile built and integrity-checked inside, then **paused with full state** for future reprints — ran on every real order |
+| 🧪 **Terac** | Two verified gen-pop waves that **changed the product twice** (86% → vector default, 71% → plainer openings), with bot votes quarantined by submission tracking |
+| 🐛 **Replay** | Three explore→fix→verify rounds: **13 real bugs fixed** (incl. data corruption), final pass clean, per-finding correctness audit in [`REPLAY.md`](./REPLAY.md), 3 false positives reported |
+| 🧠 **Pioneer** | Open-weight **GLiNER2 extracts every customer brief in production** — schema-driven NER on rambling parent texts, sub-second, verified on real customers |
+
 ## 💬 Linq — the product *is* an iMessage business
 
 Linq isn't a notification channel here; it's the storefront, the factory window, and the checkout counter.
